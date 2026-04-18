@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --red: #e63946;
+  --red-dim: rgba(230,57,70,0.15);
+  --red-glow: rgba(230,57,70,0.4);
+  --bg: #060608;
+  --surface: #0e0e12;
+  --surface2: #16161c;
+  --border: rgba(255,255,255,0.07);
+  --text: #f0f0f5;
+  --muted: #7a7a8c;
+  --mono: 'Space Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ============ LOGIN ============ */
+#login-screen {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+#login-screen.hide {
+  opacity: 0; transform: scale(1.05); pointer-events: none;
+}
+
+.login-bg {
+  position: absolute; inset: 0; overflow: hidden;
+}
+
+.scan-line {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--red), transparent);
+  animation: scanDown 4s linear infinite;
+  opacity: 0.4;
+}
+
+@keyframes scanDown {
+  0% { top: -2px; }
+  100% { top: 100%; }
+}
+
+.grid-bg {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(230,57,70,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(230,57,70,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(80px); pointer-events: none;
+}
+
+.orb1 { width:500px; height:500px; background:rgba(230,57,70,0.08); top:-100px; left:-100px; }
+.orb2 { width:400px; height:400px; background:rgba(230,57,70,0.05); bottom:-50px; right:-50px; }
+
+.login-card {
+  position: relative; z-index: 1;
+  width: 420px; max-width: 95vw;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 48px 40px;
+  box-shadow: 0 0 80px rgba(230,57,70,0.08), 0 40px 80px rgba(0,0,0,0.6);
+}
+
+.login-card::before {
+  content: '';
+  position: absolute; top:0; left:0; right:0; height:2px;
+  background: linear-gradient(90deg, transparent, var(--red), transparent);
+}
+
+.brand-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--red);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.login-title {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+  letter-spacing: -0.5px;
+}
+
+.login-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 36px;
+}
+
+.field-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.field-wrap {
+  margin-bottom: 20px;
+}
+
+.login-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 2px;
+  padding: 14px 16px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-input:focus {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px var(--red-dim);
+}
+
+.login-input::placeholder { color: var(--muted); }
+
+.pass-wrap { position: relative; }
+.toggle-pass {
+  position: absolute; right: 14px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: var(--muted); cursor: pointer;
+  font-size: 12px; font-family: var(--mono);
+}
+
+.login-btn {
+  width: 100%;
+  background: var(--red);
+  border: none;
+  border-radius: 2px;
+  padding: 15px;
+  color: white;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 8px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.2s;
+}
+
+.login-btn:hover { background: #ff4757; }
+.login-btn.loading { pointer-events: none; opacity: 0.7; }
+
+.login-btn .btn-shimmer {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.4s;
+}
+.login-btn:hover .btn-shimmer { transform: translateX(100%); }
+
+.demo-note {
+  margin-top: 20px;
+  padding: 12px;
+  background: rgba(230,57,70,0.07);
+  border: 1px solid rgba(230,57,70,0.2);
+  border-radius: 2px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  font-family: var(--mono);
+}
+
+.demo-note span { color: var(--red); }
+
+.error-msg {
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-top: 8px;
+  display: none;
+}
+
+/* ============ MAIN APP ============ */
+#main-app {
+  display: none;
+  min-height: 100vh;
+}
+
+#main-app.show { display: block; }
+
+/* Topbar */
+.topbar {
+  position: sticky; top: 0; z-index: 500;
+  background: rgba(6,6,8,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.topbar-brand {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 15px;
+  display: flex; align-items: center; gap: 10px;
+}
+
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red);
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.topbar-right {
+  display: flex; align-items: center; gap: 16px;
+}
+
+.clock-display {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.logout-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 6px 14px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* Alert banner */
+.alert-strip {
+  background: linear-gradient(90deg, rgba(230,57,70,0.12), rgba(230,57,70,0.06));
+  border-bottom: 1px solid rgba(230,57,70,0.2);
+  padding: 10px 24px;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 13px;
+}
+
+.alert-badge {
+  background: var(--red);
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  animation: blink 2s infinite;
+}
+
+/* Content */
+.content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+/* Stats row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+}
+
+.stat-card.red::after { background: var(--red); }
+.stat-card.orange::after { background: #f97316; }
+.stat-card.blue::after { background: #3b82f6; }
+.stat-card.green::after { background: #22c55e; }
+
+.stat-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stat-card.red .stat-value { color: var(--red); }
+.stat-card.orange .stat-value { color: #f97316; }
+.stat-card.blue .stat-value { color: #3b82f6; }
+.stat-card.green .stat-value { color: #22c55e; }
+
+/* Main grid */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 16px;
+}
+
+/* Map section */
+.map-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.map-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
+}
+
+.map-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+
+.map-controls {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+.map-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 6px 12px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+
+.map-btn:hover, .map-btn.active { border-color: var(--red); color: var(--red); }
+
+#map {
+  width: 100%;
+  height: 520px;
+}
+
+.map-legend {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 20px; flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.legend-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+
+/* Sidebar */
+.sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.panel-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.badge {
+  background: var(--red);
+  color: white;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-family: var(--mono);
+}
+
+/* Incidents list */
+.incident-list { max-height: 300px; overflow-y: auto; }
+.incident-list::-webkit-scrollbar { width: 3px; }
+.incident-list::-webkit-scrollbar-track { background: transparent; }
+.incident-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+.incident-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+
+.incident-item:hover { background: rgba(230,57,70,0.04); }
+.incident-item:last-child { border-bottom: none; }
+
+.severity-bar {
+  width: 3px; border-radius: 2px; flex-shrink: 0; margin-top: 3px;
+  min-height: 36px;
+}
+
+.sev-high { background: var(--red); }
+.sev-med { background: #f97316; }
+.sev-low { background: #eab308; }
+
+.incident-name {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.incident-desc {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.incident-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--red);
+  margin-top: 4px;
+}
+
+/* Routes panel */
+.route-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+
+.route-item:last-child { border-bottom: none; }
+
+.route-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+
+.route-name { font-size: 12px; font-weight: 500; }
+.route-status { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* Leaflet custom styles */
+.leaflet-container { background: #0e0e12; }
+
+.leaflet-popup-content-wrapper {
+  background: #16161c !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 4px !important;
+  color: #f0f0f5 !important;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.7) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  min-width: 240px !important;
+}
+
+.leaflet-popup-tip { background: #16161c !important; }
+.leaflet-popup-close-button { color: #7a7a8c !important; top: 8px !important; right: 8px !important; }
+
+.popup-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.popup-body { padding: 12px 16px; }
+.popup-desc { font-size: 12px; color: #a0a0b0; margin-bottom: 10px; line-height: 1.5; }
+
+.popup-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.popup-key { color: #7a7a8c; }
+.sev-tag { padding: 2px 8px; border-radius: 2px; font-size: 9px; font-weight: 700; letter-spacing: 1px; }
+.tag-high { background: rgba(230,57,70,0.2); color: #e63946; border: 1px solid rgba(230,57,70,0.3); }
+.tag-med { background: rgba(249,115,22,0.2); color: #f97316; border: 1px solid rgba(249,115,22,0.3); }
+.tag-low { background: rgba(234,179,8,0.2); color: #eab308; border: 1px solid rgba(234,179,8,0.3); }
+
+.route-tooltip {
+  background: rgba(6,6,8,0.9) !important;
+  border: 1px solid rgba(230,57,70,0.4) !important;
+  border-radius: 2px !important;
+  color: #f0f0f5 !important;
+  font-family: 'Space Mono', monospace !important;
+  font-size: 10px !important;
+  padding: 4px 8px !important;
+}
+
+@keyframes ringPulse {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@media (max-width: 900px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .stats-row { grid-template-columns: repeat(2,1fr); }
+  #map { height: 360px; }
+  .map-header { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-screen">
+  <div class="login-bg">
+    <div class="grid-bg"></div>
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="scan-line"></div>
+  </div>
+
+  <div class="login-card">
+    <div class="brand-tag">// SISTEMA DE MONITOREO</div>
+    <div class="login-title">REFORMA<br>SEGURA</div>
+    <div class="login-sub">Acceso al panel de control en tiempo real</div>
+
+    <div class="field-wrap">
+      <label class="field-label">Correo o Teléfono</label>
+      <input class="login-input" id="login-user" type="text" placeholder="usuario@email.com" autocomplete="off">
+    </div>
+
+    <div class="field-wrap">
+      <label class="field-label">Contraseña</label>
+      <div class="pass-wrap">
+        <input class="login-input" id="login-pass" type="password" placeholder="••••••••">
+        <button class="toggle-pass" id="toggle-vis" onclick="togglePass()">MOSTRAR</button>
+      </div>
+      <div class="error-msg" id="error-msg">⚠ Ingresa usuario y contraseña</div>
+    </div>
+
+    <button class="login-btn" id="login-btn" onclick="doLogin()">
+      <span class="btn-shimmer"></span>
+      ACCEDER AL SISTEMA
+    </button>
+
+    <div class="demo-note">
+      DEMO — <span>Cualquier correo/teléfono y contraseña</span> son válidos
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="main-app">
+
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="status-dot"></div>
+      REFORMA SEGURA
+      <span style="font-size:10px;color:var(--muted);font-weight:400">// MONITOREO ACTIVO</span>
+    </div>
+    <div class="topbar-right">
+      <div class="clock-display" id="clock">--:--:--</div>
+      <button class="logout-btn" onclick="doLogout()">SALIR →</button>
+    </div>
+  </div>
+
+  <div class="alert-strip">
+    <div class="alert-badge">🔴 EN VIVO</div>
+    <span style="color:var(--muted)">Megamarcha FAT activa · Paseo de la Reforma bloqueada de Monumento a la Revolución → Zócalo · Miércoles 29 Oct 2025 · 14:00–19:00 hrs</span>
+  </div>
+
+  <div class="content">
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card red">
+        <div class="stat-label">Incidentes Activos</div>
+        <div class="stat-value">12</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-label">Vialidades Bloqueadas</div>
+        <div class="stat-value">6</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Área Afectada (km²)</div>
+        <div class="stat-value">4.7</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Última Actualización</div>
+        <div class="stat-value" id="s-update" style="font-size:14px;margin-top:4px">--:--</div>
+      </div>
+    </div>
+
+    <!-- Map + Sidebar -->
+    <div class="main-grid">
+
+      <!-- Map -->
+      <div class="map-section">
+        <div class="map-header">
+          <div class="map-title">
+            <div class="status-dot" style="width:6px;height:6px"></div>
+            Mapa en tiempo real — CDMX
+          </div>
+          <div class="map-controls">
+            <button class="map-btn active" id="btn-all" onclick="filterMap('all')">TODOS</button>
+            <button class="map-btn" id="btn-march" onclick="filterMap('manifestacion')">MARCHA</button>
+            <button class="map-btn" id="btn-traffic" onclick="filterMap('trafico')">TRÁFICO</button>
+            <button class="map-btn" id="btn-route" onclick="toggleRoute()">RECORRIDO</button>
+          </div>
+        </div>
+        <div id="map"></div>
+        <div class="map-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Punto central</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Manifestación</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>Tráfico severo</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Ruta alterna</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>Metro activo</div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="sidebar">
+
+        <!-- Incidents -->
+        <div class="panel">
+          <div class="panel-header">
+            Incidentes Recientes
+            <div class="badge">12</div>
+          </div>
+          <div class="incident-list" id="incident-list"></div>
+        </div>
+
+        <!-- Alternate routes -->
+        <div class="panel">
+          <div class="panel-header">Rutas Alternas</div>
+          <div>
+            <div class="route-item">
+              <div class="route-dot" style="background:#22c55e"></div>
+              <div>
+                <div class="route-name">Periférico Norte/Sur</div>
+                <div class="route-status">✓ Libre — Recomendada</div>
+              </div>
+            </div>
+            <div class="route-item">
+              <div class="route-dot" style="background:#22c55e"></div>
+              <div>
+                <div class="route-name">Viaducto Miguel Alemán</div>
+                <div class="route-status">✓ Tráfico moderado</div>
+              </div>
+            </div>
+            <div class="route-item">
+              <div class="route-dot" style="background:#22c55e"></div>
+              <div>
+                <div class="route-name">Circuito Interior</div>
+                <div class="route-status">✓ Disponible</div>
+              </div>
+            </div>
+            <div class="route-item">
+              <div class="route-dot" style="background:#eab308"></div>
+              <div>
+                <div class="route-name">Bucareli / Dr. Mora</div>
+                <div class="route-status">⚠ Lento por desvíos</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metro -->
+        <div class="panel">
+          <div class="panel-header">Metro CDMX — Estaciones Clave</div>
+          <div>
+            <div class="route-item">
+              <div class="route-dot" style="background:#a855f7"></div>
+              <div>
+                <div class="route-name">Revolución (L2)</div>
+                <div class="route-status" style="color:#22c55e">● Operando normal</div>
+              </div>
+            </div>
+            <div class="route-item">
+              <div class="route-dot" style="background:#a855f7"></div>
+              <div>
+                <div class="route-name">Hidalgo (L2/L3)</div>
+                <div class="route-status" style="color:#f97316">● Saturado — precaución</div>
+              </div>
+            </div>
+            <div class="route-item">
+              <div class="route-dot" style="background:#a855f7"></div>
+              <div>
+                <div class="route-name">Balderas (L1/L3)</div>
+                <div class="route-status" style="color:#22c55e">● Operando normal</div>
+              </div>
+            </div>
+            <div class="route-item">
+              <div class="route-dot" style="background:#a855f7"></div>
+              <div>
+                <div class="route-name">Zócalo (L2)</div>
+                <div class="route-status" style="color:#f97316">● Alta afluencia</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+const INCIDENTES = [
+  { id:1, coords:[19.4269,-99.1678], title:"Ángel de la Independencia", desc:"Punto focal — glorieta bloqueada totalmente", type:"central", sev:"high", src:"Movilidad CDMX" },
+  { id:2, coords:[19.4370,-99.1540], title:"Monumento a la Revolución", desc:"Punto de inicio · 300+ unidades concentradas", type:"manifestacion", sev:"high", src:"Policía Tránsito" },
+  { id:3, coords:[19.4325,-99.1510], title:"Reforma — Glorieta de la Palma", desc:"Marcha en avance · tránsito detenido", type:"manifestacion", sev:"high", src:"Reporte ciudadano" },
+  { id:4, coords:[19.4310,-99.1485], title:"Calle Balderas", desc:"Bloqueo total en ambos sentidos", type:"manifestacion", sev:"high", src:"Waze" },
+  { id:5, coords:[19.4320,-99.1470], title:"Av. Juárez — Alameda Central", desc:"Segundo contingente · acceso a Centro bloqueado", type:"manifestacion", sev:"high", src:"Google Maps" },
+  { id:6, coords:[19.4315,-99.1460], title:"Eje Central Lázaro Cárdenas", desc:"Bloqueo total · desvíos activos por autoridades", type:"manifestacion", sev:"high", src:"Sec. Movilidad" },
+  { id:7, coords:[19.4355,-99.1475], title:"Av. Hidalgo — Bellas Artes", desc:"Contingente avanzando · tránsito muy lento", type:"manifestacion", sev:"med", src:"Noticiero local" },
+  { id:8, coords:[19.4245,-99.1650], title:"Zona Rosa — Insurgentes", desc:"Congestionamiento severo por desvíos", type:"trafico", sev:"med", src:"C5 CDMX" },
+  { id:9, coords:[19.4238,-99.1620], title:"Condesa — Av. Michoacán", desc:"Tráfico pesado por rutas alternas", type:"trafico", sev:"med", src:"Twitter CDMX" },
+  { id:10, coords:[19.4290,-99.1600], title:"Roma Norte — Calle Oaxaca", desc:"Congestión por cierre de Reforma", type:"trafico", sev:"med", src:"Reporte ciudadano" },
+  { id:11, coords:[19.4340,-99.1440], title:"Centro Histórico — Eje Central", desc:"Tránsito lento hacia el Zócalo", type:"trafico", sev:"med", src:"Google Maps" },
+  { id:12, coords:[19.4200,-99.1700], title:"Nápoles — Insurgentes Sur", desc:"Aumento de tráfico por desvíos", type:"trafico", sev:"low", src:"Waze" }
+];
+
+const MARCH_ROUTE = [
+  [19.4370,-99.1540],
+  [19.4350,-99.1520],
+  [19.4330,-99.1510],
+  [19.4315,-99.1500],
+  [19.4300,-99.1490],
+  [19.4290,-99.1485],
+  [19.4280,-99.1480],
+  [19.4269,-99.1478],
+  [19.4260,-99.1475],
+  [19.4250,-99.1470],
+  [19.4350,-99.1480],
+  [19.4340,-99.1470],
+  [19.4330,-99.1460],
+  [19.4320,-99.1455],
+  [19.4315,-99.1450],
+  [19.4310,-99.1445],
+  [19.4305,-99.1440],
+  [19.4300,-99.1435]
+];
+
+let map, markers = [], routeLayer = null, routeVisible = false;
+let activeFilter = 'all';
+
+// ===== LOGIN =====
+function togglePass() {
+  const p = document.getElementById('login-pass');
+  const b = document.getElementById('toggle-vis');
+  if (p.type === 'password') { p.type='text'; b.textContent='OCULTAR'; }
+  else { p.type='password'; b.textContent='MOSTRAR'; }
+}
+
+function doLogin() {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value.trim();
+  const err = document.getElementById('error-msg');
+  const btn = document.getElementById('login-btn');
+
+  if (!u || !p) { err.style.display='block'; return; }
+  err.style.display='none';
+
+  btn.classList.add('loading');
+  btn.textContent = 'VERIFICANDO...';
+
+  setTimeout(() => {
+    document.getElementById('login-screen').classList.add('hide');
+    setTimeout(() => {
+      document.getElementById('login-screen').style.display='none';
+      document.getElementById('main-app').classList.add('show');
+      initMap();
+      buildIncidentList();
+      updateClock();
+      setInterval(updateClock, 1000);
+    }, 600);
+  }, 1200);
+}
+
+function doLogout() {
+  document.getElementById('main-app').classList.remove('show');
+  const ls = document.getElementById('login-screen');
+  ls.style.display='flex';
+  requestAnimationFrame(() => ls.classList.remove('hide'));
+  const btn = document.getElementById('login-btn');
+  btn.classList.remove('loading');
+  btn.innerHTML='<span class="btn-shimmer"></span>ACCEDER AL SISTEMA';
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pass').value='';
+}
+
+document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('login-user').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-pass').focus(); });
+
+// ===== MAP =====
+function initMap() {
+  if (map) return;
+
+  map = L.map('map', { zoomControl: false, attributionControl: false })
+    .setView([19.4310, -99.1550], 14);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19, subdomains: 'abcd'
+  }).addTo(map);
+
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  L.control.attribution({ prefix: '' }).addTo(map)
+    .setPrefix('<span style="color:#7a7a8c;font-size:9px">© OpenStreetMap · CartoDB</span>');
+
+  L.circle([19.4269,-99.1678], {
+    color: 'rgba(230,57,70,0.5)',
+    fillColor: 'rgba(230,57,70,0.04)',
+    fillOpacity: 1,
+    weight: 1,
+    dashArray: '6 4',
+    radius: 1800
+  }).addTo(map).bindTooltip('Zona de monitoreo (1.8 km)', { sticky:true, className:'route-tooltip' });
+
+  addMarkers();
+}
+
+function createIcon(type, sev) {
+  const colors = {
+    central:       { bg:'#3b82f6', ring:'rgba(59,130,246,0.4)' },
+    manifestacion: { bg:'#e63946', ring:'rgba(230,57,70,0.5)' },
+    trafico:       { bg: sev==='med' ? '#f97316' : '#eab308', ring: sev==='med' ? 'rgba(249,115,22,0.4)' : 'rgba(234,179,8,0.3)' }
+  };
+
+  const c = colors[type] || colors.trafico;
+  const size = type === 'central' ? 20 : type === 'manifestacion' ? 16 : 12;
+  const ringSize = size * 3;
+
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="position:relative;width:${ringSize}px;height:${ringSize}px;display:flex;align-items:center;justify-content:center;">
+        <div style="position:absolute;width:${ringSize}px;height:${ringSize}px;border-radius:50%;background:${c.ring};animation:ringPulse 2s infinite;"></div>
+        <div style="width:${size}px;height:${size}px;background:${c.bg};border-radius:50%;border:2px solid rgba(255,255,255,0.8);box-shadow:0 2px 12px rgba(0,0,0,0.6);position:relative;z-index:2;"></div>
+      </div>
+    `,
+    iconSize: [ringSize, ringSize],
+    iconAnchor: [ringSize/2, ringSize/2],
+    popupAnchor: [0, -ringSize/2]
+  });
+}
+
+function addMarkers() {
+  INCIDENTES.forEach(inc => {
+    const icon = createIcon(inc.type, inc.sev);
+    const sevLabel = inc.sev==='high'?'ALTA':inc.sev==='med'?'MEDIA':'BAJA';
+    const sevClass = inc.sev==='high'?'tag-high':inc.sev==='med'?'tag-med':'tag-low';
+
+    const m = L.marker(inc.coords, { icon })
+      .addTo(map)
+      .bindPopup(`
+        <div>
+          <div class="popup-header">${inc.title}</div>
+          <div class="popup-body">
+            <div class="popup-desc">${inc.desc}</div>
+            <div class="popup-row">
+              <span class="popup-key">SEVERIDAD</span>
+              <span class="sev-tag ${sevClass}">${sevLabel}</span>
+            </div>
+            <div class="popup-row">
+              <span class="popup-key">FUENTE</span>
+              <span style="font-size:10px">${inc.src}</span>
+            </div>
+            <div class="popup-row" style="margin-top:6px">
+              <span class="popup-key">ACTUALIZADO</span>
+              <span style="font-size:10px">${new Date().toLocaleTimeString('es-MX')}</span>
+            </div>
+          </div>
+        </div>
+      `);
+
+    m._incidentType = inc.type;
+    markers.push(m);
+  });
+}
+
+function filterMap(type) {
+  activeFilter = type;
+  ['btn-all','btn-march','btn-traffic'].forEach(id => {
+    document.getElementById(id)?.classList.remove('active');
+  });
+
+  if (type === 'all') document.getElementById('btn-all').classList.add('active');
+  else if (type === 'manifestacion') document.getElementById('btn-march').classList.add('active');
+  else if (type === 'trafico') document.getElementById('btn-traffic').classList.add('active');
+
+  markers.forEach((m, i) => {
+    const inc = INCIDENTES[i];
+    const show = type === 'all' || inc.type === type || (type === 'manifestacion' && inc.type === 'central');
+    if (show) { if (!map.hasLayer(m)) map.addLayer(m); }
+    else { if (map.hasLayer(m)) map.removeLayer(m); }
+  });
+}
+
+function toggleRoute() {
+  const btn = document.getElementById('btn-route');
+  if (routeVisible && routeLayer) {
+    map.removeLayer(routeLayer);
+    routeLayer = null;
+    routeVisible = false;
+    btn.classList.remove('active');
+  } else {
+    routeLayer = L.polyline(MARCH_ROUTE, {
+      color: '#e63946',
+      weight: 4,
+      opacity: 0.85,
+      dashArray: '12 6'
+    }).addTo(map);
+    routeLayer.bindTooltip('Recorrido de la marcha', { sticky:true, className:'route-tooltip' });
+    routeVisible = true;
+    btn.classList.add('active');
+    map.fitBounds(routeLayer.getBounds(), { padding:[40,40] });
+  }
+}
+
+// ===== INCIDENT LIST =====
+function buildIncidentList() {
+  const el = document.getElementById('incident-list');
+  el.innerHTML = INCIDENTES.map((inc, i) => `
+    <div class="incident-item" onclick="focusIncident(${i})">
+      <div class="severity-bar sev-${inc.sev==='high'?'high':inc.sev==='med'?'med':'low'}"></div>
+      <div>
+        <div class="incident-name">${inc.title}</div>
+        <div class="incident-desc">${inc.desc}</div>
+        <div class="incident-meta">${inc.src} · ${new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function focusIncident(i) {
+  const inc = INCIDENTES[i];
+  map.flyTo(inc.coords, 16, { duration: 0.8 });
+  setTimeout(() => markers[i].openPopup(), 900);
+}
+
+// ===== CLOCK =====
+function updateClock() {
+  const t = new Date().toLocaleTimeString('es-MX');
+  const el = document.getElementById('clock');
+  const su = document.getElementById('s-update');
+  if (el) el.textContent = t;
+  if (su) su.textContent = t.slice(0,5);
+}
+</script>
+</body>
+</html>
